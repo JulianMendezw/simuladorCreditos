@@ -1,10 +1,13 @@
 import { ISimuladorUser, IDesglose, ISimuladorApi } from "./interfaces";
-import SeguroCapitalizable from "./SeguroCapitalizable";
-import ValorTotalPrestamo from "./ValorTotalPrestamo";
-import CuotaSinSeguro from "./CuotaSinSeguro";
 import { useState, useEffect } from "react";
 import SimuladorApi from "./SimuladorApi";
-import SeguroCuota from "./SeguroCuota";
+import {
+  CuotaSinSeguro,
+  SeguroCapitalizable,
+  SeguroCuota,
+  ValorTotalPrestamo,
+} from "./CalcularDesglose";
+
 import "./simulador.scss";
 import React from "react";
 
@@ -18,23 +21,29 @@ const Simulador = () => {
     formaPago: [{ nombre: "string", TA: 0.8, TB: 0.5, TC: 0.4 }],
   });
 
+  const [error, setError] = useState(null);
+
   // Update every input by user
   const updateUserData = (
     e:
       | React.ChangeEvent<HTMLSelectElement>
       | React.ChangeEvent<HTMLInputElement>
   ) => {
+    if (e.target.name === "montoSolicitado") {
+      if (
+        Number(e.target.value) < Number(simuladorApiData?.valoresFijos?.monto?.minimo) ||
+        Number(e.target.value) > Number(simuladorApiData?.valoresFijos?.monto?.maximo)
+      ) {
+        setError(null);
+        console.log(error);
+      } else {
+        setError(null);
+      }
+    }
     setSimuladorUserData((prev) => {
       return { ...prev, [e.target.name]: e.target.value };
     });
   };
-
-  //Get the api data from API's simulador.
-  useEffect(() => {
-    SimuladorApi().then(({ data }) => {
-      setSimuladorApiData(data[0]);
-    });
-  }, []);
 
   const validator = () => {
     if (
@@ -55,38 +64,12 @@ const Simulador = () => {
         simuladorApiData?.valoresFijos?.cuotaManejo
       );
 
-      switch (simuladorUserData?.metodoPago) {
-        case "caja":
-          setDesglose((prev) => {
-            return {
-              ...prev,
-              tasaInteres:
-                simuladorApiData?.formaPago[0][
-                  simuladorUserData?.categoriaAfiliacion
-                ],
-            };
-          });
-
-          break;
-
-        case "libranza":
-          setDesglose((prev) => {
-            return {
-              ...prev,
-              tasaInteres:
-                simuladorApiData?.formaPago[1][
-                  simuladorUserData?.categoriaAfiliacion
-                ],
-            };
-          });
-          break;
-
-        default:
-          break;
-      }
+      let tasa: any = simuladorApiData?.formaPago.filter(
+        (item) => item.nombre === simuladorUserData.metodoPago
+      )[0][simuladorUserData?.categoriaAfiliacion];
 
       const cuotaSinSeguro = CuotaSinSeguro(
-        desglose?.tasaInteres,
+        tasa,
         simuladorUserData.plazoMeses,
         valorTotalPrestamo
       );
@@ -96,34 +79,30 @@ const Simulador = () => {
         valorTotalPrestamo
       );
 
-      setDesglose((prev) => {
-        return { ...prev, valorTotalPrestamo: valorTotalPrestamo };
-      });
-
-      setDesglose((prev) => {
-        return { ...prev, seguroCapitalizable: seguro };
-      });
-
       const valorCuota = cuotaSinSeguro + seguroCuota;
-      setDesglose((prev) => {
-        return { ...prev, valorCuotaMensual: valorCuota };
-      });
-      setDesglose((prev) => {
-        return { ...prev, cuotaMensualSinSeguros: cuotaSinSeguro };
-      });
-      setDesglose((prev) => {
-        const interesPorcentaje = parseFloat(
-          desglose?.tasaInteres * 100
-        ).toFixed(1);
-        return { ...prev, tasaInteresPorcentaje: interesPorcentaje };
-      });
-      setDesglose((prev) => {
-        return { ...prev, segurosMensuales: seguroCuota };
-      });
 
-      console.log(desglose);
+      const interesPorcentaje = parseFloat((tasa * 100).toFixed(1));
+
+      setDesglose({
+        valorTotalPrestamo: valorTotalPrestamo,
+        seguroCapitalizable: seguro,
+        valorCuotaMensual: valorCuota,
+        cuotaMensualSinSeguros: cuotaSinSeguro,
+        tasaInteresPorcentaje: interesPorcentaje,
+        segurosMensuales: seguroCuota,
+      });
     }
   };
+
+  useEffect(() => {}, [simuladorUserData?.montoSolicitado]);
+
+  //Get the api data from API's simulador.
+  useEffect(() => {
+    SimuladorApi().then(({ data }) => {
+     
+      setSimuladorApiData(data[0]);
+    });
+  }, []);
 
   useEffect(() => {
     validator();
@@ -167,7 +146,7 @@ const Simulador = () => {
             placeholder="Mínimo: 500.000 - Máximo: 7.000.000"
             onChange={updateUserData}
           />
-
+          {error && <p>{error}</p>}
           <label>
             <span>Plazo en meses:</span>
           </label>
@@ -189,7 +168,7 @@ const Simulador = () => {
           >
             <option value="">Seleccionar...</option>
 
-            {simuladorApiData?.valoresFijos?.texto.map((apiData: any) => (
+            {simuladorApiData?.valoresFijos?.texto?.map((apiData: any) => (
               <option key={apiData.id} value={apiData.value}>
                 {apiData.label}
               </option>
@@ -201,13 +180,12 @@ const Simulador = () => {
       <div className={`desglose`}>
         <p>Valor total del prestamo: $ {desglose?.valorTotalPrestamo}</p>
         <p>Interes: {desglose?.tasaInteresPorcentaje}%</p>
-        <p>Seguro: $ {desglose?.seguroCapitalizable}</p>
-        <p>IVA seguro: $ {desglose?.ivaSeguro}</p>
+        <p>Seguro Capitalizable: $ {desglose?.seguroCapitalizable}</p>
+        {/* <p>IVA seguro: $ {desglose?.ivaSeguro}</p> */}
         <h2>Valor Cuota Mensual: $ {desglose?.valorCuotaMensual}</h2>
         <p>Cuota mensual sin seguros: $ {desglose?.cuotaMensualSinSeguros}</p>
         <p>Seguros mensuales:{desglose?.segurosMensuales}</p>
         <p>Cuota de manejo: $ {simuladorApiData?.valoresFijos?.cuotaManejo}</p>
-        <p>Seguro de vida: $ {simuladorApiData?.valoresFijos?.seguroDeVida}</p>
       </div>
     </div>
   );

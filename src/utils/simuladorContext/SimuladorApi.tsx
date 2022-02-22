@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const SimuladorApi = async (modalidad: string) => {
-  let simuladorApiUrl: string;
+  let simuladorApiUrl = "";
   let apiUrl: string = "https://619bb0052782760017445766.mockapi.io/interes/";
 
   if (modalidad === "movilidad") {
@@ -14,7 +14,9 @@ const SimuladorApi = async (modalidad: string) => {
   const response = await axios.get(simuladorApiUrl);
 
   console.log("from simulador api");
+  console.log("--------------------------------");
   console.log(response);
+  console.log("--------------------------------");
   return response;
 };
 

@@ -1,5 +1,5 @@
 import "./App.css";
-import Simulador from "./components/simulador/Simulador";
+import Simulador from "./components/organisms/simulador/Simulador";
 
 function App() {
   return <Simulador />;
